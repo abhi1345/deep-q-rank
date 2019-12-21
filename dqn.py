@@ -22,7 +22,6 @@ class DQN(nn.Module):
             nn.Linear(256, self.output_dim))
 
     def forward(self, state):
-        state = state
         q = self.fc(state)
         return q
     
@@ -40,12 +39,6 @@ class DQNAgent:
         self.tau = tau
         if buffer is not None:
             self.replay_buffer = buffer
-        else:
-            self.replay_buffer = BasicBuffer(max_size=buffer_size)
-            while len(self.replay_buffer) < buffer_size:
-              print("Adding to buffer... Size {}/{}"
-                    .format(len(self.replay_buffer), buffer_size))
-              add_to_buffer(letor, self.replay_buffer, 10)
         self.model = DQN(input_dim, 1)
         base_opt = torch.optim.Adam(self.model.parameters())
         if swa:
@@ -75,8 +68,8 @@ class DQNAgent:
         dones = torch.FloatTensor(dones)
 
         curr_Q = self.model.forward(model_inputs)
-        model_inputs = np.array([get_model_inputs(next_states[i], actions[i], dataset)
-                                 for i in range(len(next_states))])
+        model_inputs = np.array([get_model_inputs(next_states[i], actions[i], dataset) \
+            for i in range(len(next_states))])
         model_inputs = torch.FloatTensor(model_inputs)
         next_Q = self.model.forward(model_inputs)
         max_next_Q = torch.max(next_Q, 1)[0]
@@ -95,5 +88,5 @@ class DQNAgent:
         loss.backward()
         self.optimizer.step()
         if self.swa:
-          self.optimizer.swap_swa_sgd()
+            self.optimizer.swap_swa_sgd()
         return train_loss

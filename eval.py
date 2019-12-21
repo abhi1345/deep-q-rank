@@ -1,7 +1,36 @@
 
+from scipy.stats import kendalltau, spearmanr
+import numpy as np
+import pandas as pd
+import random
+from sklearn.utils import shuffle
+import torch
+import torch.nn as nn
+import torch.autograd as autograd
+from torchcontrib.optim import SWA
+from collections import deque
+import matplotlib.pyplot as plt
+random.seed(2)
+
+def dcg_at_k(r, k, method=0):
+    r = np.asfarray(r)[:k]
+    if r.size:
+        if method == 0:
+            return r[0] + np.sum(r[1:] / np.log2(np.arange(2, r.size + 1)))
+        elif method == 1:
+            return np.sum(r / np.log2(np.arange(2, r.size + 2)))
+        else:
+            raise ValueError('method must be 0 or 1.')
+    return 0.
+
+def ndcg_at_k(r, k, method=0):
+    dcg_max = dcg_at_k(sorted(r, reverse=True), k, method)
+    if not dcg_max:
+        return 0.
+    return dcg_at_k(r, k, method) / dcg_max
 
 def compare_rankings(r1, r2):
-    from scipy.stats import kendalltau, spearmanr
+    
     return kendalltau(r1, r2), spearmanr(r1, r2)
 
 def get_rank(qid, doc_id, dataset):
