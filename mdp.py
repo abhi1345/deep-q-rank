@@ -8,6 +8,8 @@ import torch.autograd as autograd
 from torchcontrib.optim import SWA
 from collections import deque
 
+from util import *
+
 class State:
 
     def __init__(self, t, query, remaining):

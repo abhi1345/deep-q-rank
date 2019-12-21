@@ -8,6 +8,8 @@ import torch.autograd as autograd
 from torchcontrib.optim import SWA
 from collections import deque
 
+from preprocess import *
+
 class DQN(nn.Module):
     
     def __init__(self, input_dim, output_dim):
@@ -60,8 +62,8 @@ class DQNAgent:
 
     def compute_loss(self, batch, dataset, verbose=False):
         states, actions, rewards, next_states, dones = batch
-        model_inputs = np.array([get_model_inputs(states[i], actions[i], dataset)
-                                 for i in range(len(states))])
+        model_inputs = np.array([get_model_inputs(states[i], actions[i], dataset)\
+            for i in range(len(states))])
         model_inputs = torch.FloatTensor(model_inputs)
 
         rewards = torch.FloatTensor(rewards)
