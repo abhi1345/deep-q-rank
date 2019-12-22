@@ -24,8 +24,7 @@ class DQN(nn.Module):
             nn.Linear(256, self.output_dim))
 
     def forward(self, state):
-        q = self.fc(state)
-        return q
+        return self.fc(state)
     
 class DQNAgent:
 
@@ -39,17 +38,16 @@ class DQNAgent:
         self.learning_rate = learning_rate
         self.gamma = gamma
         self.tau = tau
-        if buffer is not None:
-            self.replay_buffer = buffer
         self.model = DQN(input_dim, 1)
         base_opt = torch.optim.Adam(self.model.parameters())
+        self.swa = swa
+        self.dataset=dataset
+        self.MSE_loss = nn.MSELoss()
+        self.replay_buffer = buffer
         if swa:
           self.optimizer = SWA(base_opt, swa_start=10, swa_freq=5, swa_lr=0.05)
         else:
           self.optimizer = base_opt
-        self.swa = swa
-        self.dataset=dataset
-        self.MSE_loss = nn.MSELoss()
 
     def get_action(self, state, dataset=None):
         if dataset is None:

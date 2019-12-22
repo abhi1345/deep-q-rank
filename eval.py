@@ -1,4 +1,6 @@
 
+# Functions for Evaluating Agent Performance
+
 from scipy.stats import kendalltau, spearmanr
 import numpy as np
 import pandas as pd
@@ -11,6 +13,14 @@ from torchcontrib.optim import SWA
 from collections import deque
 import matplotlib.pyplot as plt
 random.seed(2)
+
+def compute_reward(t, relevance):
+    """
+    Reward function for MDP
+    """
+    if t == 0:
+        return 0
+    return relevance / np.log2(t + 1)
 
 def dcg_at_k(r, k, method=0):
     r = np.asfarray(r)[:k]
@@ -28,6 +38,12 @@ def ndcg_at_k(r, k, method=0):
     if not dcg_max:
         return 0.
     return dcg_at_k(r, k, method) / dcg_max
+
+def all_ndcg_values(r, k_list):
+    ret = {}
+    for k in k_list:
+        ret[k] = ndcg_at_k(r, k)
+    return ret
 
 def compare_rankings(r1, r2):
     
