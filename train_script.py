@@ -3,7 +3,7 @@
 TRAINING_SET_PATH = "/Users/Abhi/Desktop/development/MQ2008-list/Fold1/train.txt"
 IS_TRAIN_SET_DIR = False # Set to true if training on multiple sets in a directory
 VAL_SET_PATH = "/Users/Abhi/Desktop/development/MQ2008-list/Fold1/vali.txt"
-EPOCHS = 1
+EPOCHS = 50
 OUTPUT_FILE_NAME = "output.txt"
 
 # END USER VARIABLES
@@ -26,7 +26,6 @@ random.seed(2)
 from preprocess import *
 from dqn import *
 from mdp import *
-from util import *
 from eval import *
 
 def main():
@@ -46,6 +45,7 @@ def main():
     # Begin Training
     y, z = [], []
     for i in range(EPOCHS):
+        print("Beginning Iteration {}\n".format(i))
         y.append(agent.update(1, verbose=True))
         z.append(agent.compute_loss(val_buffer.sample(1), val_set, verbose=True))
 

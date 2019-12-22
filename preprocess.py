@@ -9,8 +9,6 @@ import torch.autograd as autograd
 from torchcontrib.optim import SWA
 from collections import deque
 
-from util import *
-
 def load_letor(filepath):
     dic = {}
     for i in range(1, 47):

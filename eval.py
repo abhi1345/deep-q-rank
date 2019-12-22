@@ -40,10 +40,17 @@ def ndcg_at_k(r, k, method=0):
     return dcg_at_k(r, k, method) / dcg_max
 
 def all_ndcg_values(r, k_list):
-    ret = {}
-    for k in k_list:
-        ret[k] = ndcg_at_k(r, k)
-    return ret
+    """
+    Gets NDCG @ [1..10] and Mean NDCG Value
+    """
+    ret = []
+    running_sum = 0
+    for i in range(1, len(r)):
+        cur_ndcg = ndcg_at_k(r, i)
+        if i <= 10:
+            ret.append(cur_ndcg)
+        running_sum += cur_ndcg
+    return ret + [float(running_sum) / len(r)]
 
 def compare_rankings(r1, r2):
     
@@ -141,4 +148,17 @@ def eval_agent_ndcg(agent, k, dataset):
     answer = float(ndcg) / len(qid_set)
     print("Mean NDCG@{} of {} across {} samples".format(k, answer, len(qid_set)))
     return answer
+
+def eval_agent_final(agent, k_list, dataset):
+    """
+    Returns a list of average NDCG@k for each k in the k_list
+    """
+    ndcg_map = {}
+    qid_set = set(dataset["qid"])
+    for k in k_list:
+        print("Running NDCG@{}".format(k))
+        ndcg_map[k] = eval_agent_ndcg(agent, k, dataset)
+    print("NDCG Values: {}".format(ndcg_map))
+    return ndcg_map
+
     
