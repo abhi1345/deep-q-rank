@@ -10,8 +10,15 @@ import torch.autograd as autograd
 from torchcontrib.optim import SWA
 from collections import deque
 
-from eval import *
 from preprocess import *
+
+def compute_reward(t, relevance):
+    """
+    Reward function for MDP
+    """
+    if t == 0:
+        return 0
+    return relevance / np.log2(t + 1)
 
 class State:
 

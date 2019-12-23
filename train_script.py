@@ -1,10 +1,10 @@
 # BEGIN USER VARIABLES (CHANGE THESE)
 
-TRAINING_SET_PATH = "/Users/Abhi/Desktop/development/MQ2008-list/Fold1/train.txt"
+TRAINING_SET_PATHS = "/home/u27948/data/Fold1/train.txt"
 IS_TRAIN_SET_DIR = False # Set to true if training on multiple sets in a directory
-VAL_SET_PATH = "/Users/Abhi/Desktop/development/MQ2008-list/Fold1/vali.txt"
-EPOCHS = 50
-OUTPUT_FILE_NAME = "output.txt"
+VAL_SET_PATH = "/home/u27948/data/Fold1/vali.txt"
+EPOCHS = 10000
+OUTPUT_FILE_NAME = "/home/u27948/output/losses.txt"
 
 # END USER VARIABLES
 
@@ -29,7 +29,7 @@ from mdp import *
 from eval import *
 
 def main():
-    # Load in Data 
+    # Load in Data
     train_set = load_letor(TRAINING_SET_PATH)
     val_set = load_letor(VAL_SET_PATH)
 

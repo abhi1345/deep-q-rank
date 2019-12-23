@@ -14,13 +14,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 random.seed(2)
 
-def compute_reward(t, relevance):
-    """
-    Reward function for MDP
-    """
-    if t == 0:
-        return 0
-    return relevance / np.log2(t + 1)
+from mdp import *
 
 def dcg_at_k(r, k, method=0):
     r = np.asfarray(r)[:k]
@@ -47,9 +41,10 @@ def all_ndcg_values(r, k_list):
     running_sum = 0
     for i in range(1, len(r)):
         cur_ndcg = ndcg_at_k(r, i)
-        if i <= 10:
+        if i in k_list:
             ret.append(cur_ndcg)
         running_sum += cur_ndcg
+    #print(ret + [float(running_sum) / len(r)])
     return ret + [float(running_sum) / len(r)]
 
 def compare_rankings(r1, r2):
@@ -134,6 +129,15 @@ def eval_agent_ndcg_single(agent, k, qid, dataset):
     print("running eval")
     cur_ndcg = evaluate_ranking(agent_ranking, qid, k, dataset)
     return cur_ndcg
+
+def all_ndcg_single(agent, k_list, qid, dataset):
+    """
+    Evaluate your agent against a given LETOR dataset with 
+    returns ndcg@k, averaged across all queries in dataset
+    """
+    agent_ranking = get_agent_ranking(agent, qid, dataset)
+    relevance_list = ranking_to_ranks(agent_ranking, qid, dataset)
+    return all_ndcg_values(relevance_list, k_list)
     
 def eval_agent_ndcg(agent, k, dataset):
     """
@@ -151,14 +155,15 @@ def eval_agent_ndcg(agent, k, dataset):
 
 def eval_agent_final(agent, k_list, dataset):
     """
-    Returns a list of average NDCG@k for each k in the k_list
+    Returns a list of average NDCG@k for each k in the k_list, plus Mean NDCG
     """
-    ndcg_map = {}
     qid_set = set(dataset["qid"])
-    for k in k_list:
-        print("Running NDCG@{}".format(k))
-        ndcg_map[k] = eval_agent_ndcg(agent, k, dataset)
-    print("NDCG Values: {}".format(ndcg_map))
-    return ndcg_map
+    ndcg_list = np.append(np.zeros(len(k_list)), 0)
+    #print(ndcg_list)
+    for qid in qid_set:
+        ndcg_list += np.array(all_ndcg_single(agent, k_list, qid, dataset))
+    ndcg_list /= len(qid_set)
+    print("NDCG Values: {}".format(ndcg_list))
+    return ndcg_list
 
     

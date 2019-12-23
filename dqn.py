@@ -34,11 +34,14 @@ class DQNAgent:
                  buffer=None,
                  buffer_size=10000, 
                  tau=0.999,
-                 swa=False):
+                 swa=False,
+                 pre_trained_model=None):
         self.learning_rate = learning_rate
         self.gamma = gamma
         self.tau = tau
         self.model = DQN(input_dim, 1)
+        if pre_trained_model:
+            self.model = pre_trained_model
         base_opt = torch.optim.Adam(self.model.parameters())
         self.swa = swa
         self.dataset=dataset
