@@ -1,6 +1,4 @@
-
 # Functions for Evaluating Agent Performance
-
 from scipy.stats import kendalltau, spearmanr
 import numpy as np
 import pandas as pd
@@ -47,8 +45,23 @@ def all_ndcg_values(r, k_list):
     #print(ret + [float(running_sum) / len(r)])
     return ret + [float(running_sum) / len(r)]
 
+def ndcg_plus_tau(r, k_list):
+    """
+    Gets NDCG @ [1..10] and Mean NDCG Value
+    """
+    ret = []
+    running_sum = 0
+    for i in range(1, len(r)):
+        cur_ndcg = ndcg_at_k(r, i)
+        if i in k_list:
+            ret.append(cur_ndcg)
+        running_sum += cur_ndcg
+    return ret + [float(running_sum) / len(r)] + [kendalltau(r, sorted(r, reverse=True))[0]]
+
+def get_tau(r):
+    return kendalltau(r, sorted(r, reverse=True))[0]
+
 def compare_rankings(r1, r2):
-    
     return kendalltau(r1, r2), spearmanr(r1, r2)
 
 def get_rank(qid, doc_id, dataset):
@@ -138,6 +151,19 @@ def all_ndcg_single(agent, k_list, qid, dataset):
     agent_ranking = get_agent_ranking(agent, qid, dataset)
     relevance_list = ranking_to_ranks(agent_ranking, qid, dataset)
     return all_ndcg_values(relevance_list, k_list)
+
+def all_error_single(agent, k_list, qid, dataset):
+    """
+    Returns NDCG@k list plus tau for a single qid
+    """
+    agent_ranking = get_agent_ranking(agent, qid, dataset)
+    relevance_list = ranking_to_ranks(agent_ranking, qid, dataset)
+    return ndcg_plus_tau(relevance_list, k_list)
+
+def get_tau_single(agent, qid, dataset):
+    agent_ranking = get_agent_ranking(agent, qid, dataset)
+    relevance_list = ranking_to_ranks(agent_ranking, qid, dataset)
+    return get_tau(relevance_list)
     
 def eval_agent_ndcg(agent, k, dataset):
     """
@@ -166,4 +192,27 @@ def eval_agent_final(agent, k_list, dataset):
     print("NDCG Values: {}".format(ndcg_list))
     return ndcg_list
 
+def get_all_errors(agent, k_list, dataset):
+    """
+    Returns NDCG@k List, Kendall's Tau, and Precision @ k
+    """
+    qid_set = set(dataset["qid"])
+    ndcg_list = np.zeros(len(k_list)+2)
+    for qid in qid_set:
+        ndcg_list += np.array(all_error_single(agent, k_list, qid, dataset))
+    ndcg_list /= len(qid_set)
+    print("NDCG Values: {}".format(ndcg_list))
+    return ndcg_list
+
+def get_just_tau(agent, dataset):
+    """
+    Returns Kendall's Tau
+    """
+    qid_set = set(dataset["qid"])
+    avg_tau = 0.0
+    for qid in qid_set:
+        avg_tau += get_tau_single(agent, qid, dataset)
+    avg_tau /= len(qid_set)
+    print("Tau Value: {}".format(avg_tau))
+    return avg_tau
     
