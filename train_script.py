@@ -1,13 +1,3 @@
-# BEGIN USER VARIABLES (CHANGE THESE)
-
-TRAINING_SET_PATHS = "/home/u27948/data/Fold1/train.txt"
-IS_TRAIN_SET_DIR = False # Set to true if training on multiple sets in a directory
-VAL_SET_PATH = "/home/u27948/data/Fold1/vali.txt"
-EPOCHS = 10000
-OUTPUT_FILE_NAME = "/home/u27948/output/losses.txt"
-
-# END USER VARIABLES
-
 # External Packages
 import numpy as np
 import pandas as pd
@@ -27,6 +17,18 @@ from preprocess import *
 from dqn import *
 from mdp import *
 from eval import *
+
+# BEGIN USER VARIABLES (CHANGE THESE)
+
+TRAINING_SET_PATH = "/home/u27948/data/Fold3/train.txt"
+IS_TRAIN_SET_DIR = False # Set to true if training on multiple sets in a directory
+VAL_SET_PATH = "/home/u27948/data/Fold3/vali.txt"
+EPOCHS = 1000
+OUTPUT_FILE_NAME = "/home/u27948/output/{}losses.txt".format(time.asctime())
+
+# END USER VARIABLES
+
+
 
 def main():
     # Load in Data
@@ -52,14 +54,22 @@ def main():
     # Save Model
     model_name = time.asctime() + " model.pth"
     torch.save(agent.model.state_dict(), model_name)
+    
+    # Plot Losses
+    y = [float(x) for x in y]
+    z = [float(x) for x in z]
+    plt.plot(z, label="val")
+    plt.plot(y, label="train")
+    plt.legend()
+    plt.savefig('foo.png')
 
     # Write Losses to File
     with open(OUTPUT_FILE_NAME, 'w+') as f:
         f.write("Training Loss:\n")
-        f.write(str([float(x) for x in y]))
+        f.write(str(y))
         f.write("\n\n")
         f.write("Validation Loss:\n")
-        f.write(str([float(x) for x in z]))
+        f.write(str(z))
         f.write("\n")
 
 if __name__ == "__main__":

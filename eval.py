@@ -116,6 +116,7 @@ def get_agent_ranking(agent, qid, df):
     ranking = []
     t = 0
     while len(remaining) > 0:
+        
         next_action = agent.get_action(state, df)
         t += 1
         remaining.remove(next_action)

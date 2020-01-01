@@ -17,11 +17,9 @@ class DQN(nn.Module):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.fc = nn.Sequential( \
-            nn.Linear(self.input_dim[0], 512), \
+            nn.Linear(self.input_dim[0], 32), \
             nn.ReLU(), \
-            nn.Linear(512, 256), \
-            nn.ReLU(), \
-            nn.Linear(256, self.output_dim))
+            nn.Linear(32, self.output_dim))
 
     def forward(self, state):
         return self.fc(state)

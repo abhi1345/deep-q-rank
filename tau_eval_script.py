@@ -23,10 +23,8 @@ from eval import *
 # BEGIN USER VARIABLES (CHANGE THESE)
 
 LETOR_PATH = "/home/u27948/data"
-OUTPUT_FILE_NAME = time.asctime() + " tau error output.txt"
-PRETRAINED_MODEL_PATH = "/home/u27948/deep-q-rank/best_model.pth"
-NDCG_K_LIST = [1,2,3,4,5,6,7,8,9,10]
-EPOCHS = 1000
+OUTPUT_FILE_NAME = "./logs/" + time.asctime() + " tau error output.txt"
+EPOCHS = 10000
 
 # END USER VARIABLES
 
@@ -45,7 +43,8 @@ def train_model(fold):
 
     # Begin Training
     for i in range(EPOCHS):
-        print("Beginning Iteration {}\n".format(i))
+        if i % 100 == 0:
+            print("Beginning Iteration {}\n".format(i))
         agent.update(1, verbose=False)
 
     # Save Model
