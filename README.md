@@ -22,3 +22,6 @@ As this table shows, our model has the highest NDCG@1 (a ranking metric used for
 | RankNet       | 0\.4790 |
 | MDPRank       | 0\.4061 |
 | **DeepQRank**     | **0\.5075** |
+
+## How to Run
+The scripts folder has multiple scripts for training and evaluating a model. To modify the neural network being used, you can edit the model/dqn.py file. The dataset needed for this model is LETOR's listwise dataset.
