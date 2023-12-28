@@ -8,7 +8,7 @@ import torch.autograd as autograd
 from torchcontrib.optim import SWA
 from collections import deque
 
-from preprocess import *
+from util.preprocess import *
 
 class DQN(nn.Module):
     
@@ -64,7 +64,8 @@ class DQNAgent:
         model_inputs = np.array([get_model_inputs(states[i], actions[i], dataset)\
             for i in range(len(states))])
         model_inputs = torch.FloatTensor(model_inputs)
-
+         
+        rewards = np.array(rewards)
         rewards = torch.FloatTensor(rewards)
         dones = torch.FloatTensor(dones)
 

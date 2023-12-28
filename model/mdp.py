@@ -10,15 +10,20 @@ import torch.autograd as autograd
 from torchcontrib.optim import SWA
 from collections import deque
 
-from preprocess import *
+from util.preprocess import *
 
-def compute_reward(t, relevance):
+def compute_reward(t, relevance, bias):
     """
     Reward function for MDP
+    Bias value is in [-1, 1] -> either do abs or lambda*bias
+    Relevance value is in [0, 1]
     """
     if t == 0:
         return 0
-    return relevance / np.log2(t + 1)
+    # return relevance / np.log2(t + 1)
+    return (float(relevance)*1000000 / np.log2(t + 1)) + (1/(abs(bias) + 1))
+    
+    
 
 class State:
 
@@ -58,7 +63,7 @@ class BasicBuffer:
                 old_state = State(t, cur_row["qid"], X[:])
                 action = cur_row["doc_id"]
                 new_state = State(t+1, cur_row["qid"], X[:])
-                reward = compute_reward(t+1, cur_row["rank"])
+                reward = compute_reward(t+1, cur_row["relevance"], cur_row["bias"])
                 self.push(old_state, action, reward, new_state, t+1 == len(row_order))
                 filtered_df.drop(filtered_df.index[[r]])
 

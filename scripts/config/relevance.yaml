@@ -1,0 +1,56 @@
+version: v1
+run_name: relevance_${version}
+
+directories:
+  base_path: "/home/shiva_soleimany/deep-q-rank/"
+  dataset_folder: "/home/sajadeb/msmarco/"
+  output_folder: "${directories.base_path}/data/output/${run_name}"
+  plot_folder: "${directories.output_folder}/plots"
+  model_folder: "${directories.output_folder}/models"
+  loss_folder: "${directories.output_folder}/losses"
+
+file_paths:
+  train_set_path: "${directories.dataset_folder}/runbm25anserini_top100_with_biases"
+  train_set_df_path: "${directories.base_path}/data/top${train_config.run_params.top_docs_count}_docs.csv"
+  val_set_path: "${directories.dataset_folder}/runbm25anserini_top100_with_biases"
+  test_set_path: "${directories.dataset_folder}/runbm25anserini_top100_with_biases"
+  
+train_config:
+  train_set_path: "${file_paths.train_set_path}"
+  train_set_df_path: "${file_paths.train_set_df_path}"
+  val_set_path: "${file_paths.val_set_path}"
+  train_output_file_path: "${directories.loss_folder}/TrainLosses.txt"
+  validation_output_file_path: "${directories.loss_folder}/ValidationLosses.txt"
+
+  train_loss_plot_path: "${directories.plot_folder}/TrainingLoss.png"
+  validation_loss_plot_path: "${directories.plot_folder}/ValidationLoss.png"
+  model_path: "${directories.model_folder}/model.pth" 
+
+  run_params:
+    epochs: 10
+    seed: 0
+    window: 1
+    top_docs_count: 10
+
+  columns:
+    - qid
+    - doc_id
+    # - rank
+    - relevance
+    - bias
+
+  ndcg_k_list:
+    - 1
+
+eval_config:
+  run_params:
+    top_docs_count: 10
+
+
+  test_set_path: "${file_paths.test_set_path}"
+  eval_output_file_path: "${directories.output_folder}/eval_output.txt"
+  pretrained_model_path: "${train_config.model_path}"
+
+  ndcg_k_list: ${train_config.ndcg_k_list}
+  fold_list:
+    - 1

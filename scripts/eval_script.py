@@ -1,59 +1,65 @@
-# External Packages
-import numpy as np
-import pandas as pd
-import random
-from sklearn.utils import shuffle
 import torch
-import torch.nn as nn
-import torch.autograd as autograd
-from torchcontrib.optim import SWA
-from collections import deque
-import matplotlib.pyplot as plt
+import argparse
 import time
-import os
+from hydra import compose, initialize
+from loguru import logger 
 
-def find(name, path):
-    for root, dirs, files in os.walk(path):
-        if name in files:
-            return os.path.join(root, name)
+from util import *
+from model.dqn import DQN, DQNAgent
 
-# Internal Packages
-from preprocess import *
-from dqn import *
-from mdp import *
-from eval import *
+def eval_model(cfg):
 
-# BEGIN USER VARIABLES (CHANGE THESE)
+    test_set_path = cfg.test_set_path
+    output_file_path = cfg.eval_output_file_path
+    pretrained_model_path = cfg.pretrained_model_path
+    fold_list = cfg.fold_list
+    ndcg_k_list = cfg.ndcg_k_list
 
-LETOR_PATH = "/home/u27948/data"
-OUTPUT_FILE_NAME = time.asctime() + " eval output.txt"
-PRETRAINED_MODEL_PATH = "/home/u27948/deep-q-rank/best_model.pth"
-NDCG_K_LIST = [1,2,3,4,5,6,7,8,9,10]
+    logger.info("Loading TEST SET")
+    test_set = load_dataset(test_set_path, cfg.run_params.top_docs_count, '')
 
-# END USER VARIABLES
-
-def train_model(LETOR_PATH, OUTPUT_FILE_NAME, PRETRAINED_MODEL_PATH):
     start_time = time.time()
-    print("Creating Agent from Saved Model")
-    model = DQN((47,), 1)
-    model.load_state_dict(torch.load(PRETRAINED_MODEL_PATH))
-    agent = DQNAgent((47,), learning_rate=3e-4, buffer=None, dataset=None, pre_trained_model=model)
+    logger.info("Creating Agent from Saved Model")
+    model = DQN((48,), 1)
+    model.load_state_dict(torch.load(pretrained_model_path))
+    agent = DQNAgent((48,), learning_rate=3e-4, buffer=None, dataset=None, pre_trained_model=model)
 
-    for fold in [2,3,4,5]:
-        print("\nRunning Fold {}".format(fold))
-        print("Loading LETOR TEST SET")
-        test_path = LETOR_PATH + "/Fold{}".format(fold) + "/test.txt"
-        letor_test = load_letor(test_path)
-        print("Running Eval on LETOR Test")
-        ndcg_list = eval_agent_final(agent, NDCG_K_LIST, letor_test)
-        print("Saving results")
-        with open(OUTPUT_FILE_NAME, "a+") as f:
-            f.write("Fold {} NDCG Values: {}\n".format(fold, NDCG_K_LIST))
+    for fold in fold_list:
+
+        logger.info("Running Eval on test dataset with Fold {}".format(fold))
+        ndcg_list = eval_agent_final(agent, ndcg_k_list, test_set)
+        write_trec_results(agent, test_set, "relevance", output_file_path )
+        logger.info("Saving results")
+        with open(outputfile_path, "w") as f:
+            f.write("Fold {} NDCG Values: {}\n".format(fold, ndcg_k_list))
             f.write(str(ndcg_list))
             f.write("\n")
             
-    print("Finished Successfully Evaluating Model.")
-    print("--- %s seconds ---" % (time.time() - start_time))
+    logger.info("Finished Evaluating Model Successfully.")
+    logger.info("--- %s seconds ---" % (time.time() - start_time))
+
+def main():
+
+    parser = argparse.ArgumentParser(description="Running eval_script")
+    parser.add_argument("--conf", type=str, help="Path to the config file")
+    args = parser.parse_args()
+
+    if args.conf:
+        config_file = args.conf
+        logger.info(f"Config file name: {config_file}")
+    else:
+        logger.info(
+            "Please provide the name of the config file using the --conf argument. \nExample: --conf rank.yaml"
+        )
+
+    initialize(config_path="config")
+    cfg = compose(config_name=f"{config_file}")
+
+    create_directories(
+        cfg.directories
+    )
+
+    eval_model(cfg.eval_config)
 
 if __name__ == "__main__":
-    train_model(LETOR_PATH, OUTPUT_FILE_NAME, PRETRAINED_MODEL_PATH)
+    main()
