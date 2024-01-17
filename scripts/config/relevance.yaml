@@ -48,7 +48,8 @@ eval_config:
 
 
   test_set_path: "${file_paths.test_set_path}"
-  eval_output_file_path: "${directories.output_folder}/eval_output.txt"
+  eval_trec_output_file_path: "${directories.output_folder}/eval_trec_output.txt"
+  eval_ndgc_output_file_path: "${directories.output_folder}/eval_ndgc_output.txt"
   pretrained_model_path: "${train_config.model_path}"
 
   ndcg_k_list: ${train_config.ndcg_k_list}
