@@ -10,7 +10,8 @@ from model.dqn import DQN, DQNAgent
 def eval_model(cfg):
 
     test_set_path = cfg.test_set_path
-    output_file_path = cfg.eval_output_file_path
+    trec_output_file_path = cfg.eval_trec_output_file_path
+    ndgc_output_file_path = cfg.ndgc_trec_output_file_path
     pretrained_model_path = cfg.pretrained_model_path
     fold_list = cfg.fold_list
     ndcg_k_list = cfg.ndcg_k_list
@@ -28,9 +29,9 @@ def eval_model(cfg):
 
         logger.info("Running Eval on test dataset with Fold {}".format(fold))
         ndcg_list = eval_agent_final(agent, ndcg_k_list, test_set)
-        write_trec_results(agent, test_set, "relevance", output_file_path )
+        write_trec_results(agent, test_set, "relevance", trec_output_file_path )
         logger.info("Saving results")
-        with open(outputfile_path, "w") as f:
+        with open(ndgc_output_file_path, "w") as f:
             f.write("Fold {} NDCG Values: {}\n".format(fold, ndcg_k_list))
             f.write(str(ndcg_list))
             f.write("\n")
