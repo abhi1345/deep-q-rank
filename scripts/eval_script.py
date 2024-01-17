@@ -11,7 +11,7 @@ def eval_model(cfg):
 
     test_set_path = cfg.test_set_path
     trec_output_file_path = cfg.eval_trec_output_file_path
-    ndgc_output_file_path = cfg.ndgc_trec_output_file_path
+    ndgc_output_file_path = cfg.eval_ndgc_output_file_path
     pretrained_model_path = cfg.pretrained_model_path
     fold_list = cfg.fold_list
     ndcg_k_list = cfg.ndcg_k_list
