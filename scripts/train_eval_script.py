@@ -1,3 +1,4 @@
+import time
 import argparse
 from hydra import compose, initialize
 from util import *
@@ -5,7 +6,7 @@ from scripts import *
 
 def main():
     
-    parser = argparse.ArgumentParser(description="Running train_script")
+    parser = argparse.ArgumentParser(description="Running train_eval_script")
     parser.add_argument("--conf", type=str, help="Path to the config file")
     args = parser.parse_args()
 
@@ -24,8 +25,20 @@ def main():
         cfg.directories
     )
 
+    train_start_time = time.time()
+
     train_model(cfg.train_config)
+
+    train_end_time = time.time()
+    #---------------
     eval_model(cfg.eval_config)
+    
+    eval_end_time = time.time()
+
+    train_run_time = train_end_time - train_start_time
+    eval_run_time = eval_end_time - train_end_time
+    save_run_info(cfg.train_config, train_run_time,  eval_run_time)
+
 
 if __name__ == "__main__":
     main()

@@ -7,6 +7,54 @@ from sklearn.utils import shuffle
 from model.mdp import *
 
 
+
+def calculate_MRR(qrel_file, run_file, k):
+
+    qrel, run = {}, {}
+
+    with open(qrel_file, 'r') as f_qrel:
+        for line in f_qrel:
+            qid, _, did, label = line.strip().split("\t")
+            if qid not in qrel:
+                qrel[qid] = {}
+            qrel[qid][did] = int(label)
+
+    if isinstance(run_file, pd.DataFrame):
+        for index, row in run_file.iterrows():
+            qid = str(row['qid'])
+            did = str(row['doc_id'])
+            if qid not in run:
+                run[qid] = []
+            run[qid].append(did)
+    else:
+        with open(run_file, 'r') as f_run:
+            for line in f_run:
+                qid, _, did, *_ = line.strip().split(" ")
+                if qid not in run:
+                    run[qid] = []
+                run[qid].append(did)
+        
+    mrr = 0.0
+    qids = []
+    rrs = []
+
+    for qid in run:
+        rr = 0.0
+        for i, did in enumerate(run[qid][:k]):
+            if qid in qrel and did in qrel[qid] and qrel[qid][did] > 0:
+                rr = 1 / (i+1)
+                break
+        qids.append(qid)
+        rrs.append(rr)
+        mrr += rr
+    mrr /= len(run)
+
+    print("MRR@10: ", mrr)
+    return mrr
+
+
+
+
 def dcg_at_k(r, k, method=0):
     r = np.asfarray(r)[:k]
     if r.size:
@@ -88,6 +136,7 @@ def reward_from_query(agent, qid, df):
         state = State(t, qid, remaining)
 
         reward = compute_reward(t, get_feature(qid, next_action, letor, "relevance"), get_feature(qid, next_action, letor, "bias"))
+        
         total_reward += reward
     return total_reward
 
@@ -175,6 +224,7 @@ def eval_agent_final(agent, k_list, dataset):
     for qid in qid_set:
         ndcg_list += np.array(all_ndcg_single(agent, k_list, qid, dataset))
     ndcg_list /= len(qid_set)
+
     # print("NDCG Values: {}".format(ndcg_list))
     return ndcg_list
 
@@ -202,11 +252,19 @@ def get_just_tau(agent, dataset):
     print("Tau Value: {}".format(avg_tau))
     return avg_tau
     
-def write_trec_results(agent, dataset, feature_name, output_file_path: str):    
+def write_trec_results(agent, dataset, feature_names, output_file_path: str):    
+    
     with open(output_file_path, 'a+') as file:
         for qid in set(dataset["qid"]):
             agent_ranking = get_agent_ranking_list(agent, qid, dataset)
             for rank, doc_id in enumerate(agent_ranking, start=1):
-                relevance_score = dataset[(dataset["qid"] == qid) & (dataset["doc_id"] == doc_id)][feature_name].values[0]
-                file.write(f"{qid} QO {doc_id} {rank} {relevance_score} ModelName\n")
+                feature_scores = []
+                for feature_name in feature_names:
+                    feature_score = dataset[(dataset["qid"] == qid) & (dataset["doc_id"] == doc_id)][feature_name].values[0]
+                    feature_scores.append(feature_score)
+
+                # print(feature_scores)
+                feature_scores = [str(a) for a in feature_scores]
+                feature_scores = " ".join(feature_scores)
+                file.write(f"{qid} QO {doc_id} {rank} {feature_scores} ModelName\n")
 

@@ -1,58 +1,108 @@
+import os 
+import time
 import pandas as pd
 from pathlib import Path
 from loguru import logger
 from typing import List, Union
 import numpy as np
+from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
+from util.constants import *
 
-def load_dataset(read_file: str, top_docs_count: int, save_file: str) -> pd.DataFrame:
-    """
-    Load and preprocess dataset.
-    
-    Args:
-    - read_file (str): Path to the input file.
-    - top_docs_count (int): Number of top documents to consider for each query.
-    - save_file (str): Path to save the processed file for possible future use.
-    
-    Returns:
-    - pd.DataFrame: Processed dataset.
-    """
-    columns_to_read = ["qid", "relevance", "doc_id", "bias"] + [str(i) for i in range(1, 47)]
+def load_dataset(cfg, model_path: str, top_docs_count: int, run_mode: str, stage: str) -> pd.DataFrame:
 
-    if Path(save_file).is_file():
-        df = pd.read_csv(save_file)
-        df['doc_id'] = df['doc_id'].astype(str)
-        logger.info("Loaded data from CSV file")
+    print(cfg.stage, cfg.run_mode)
+    start_time = time.time()
+
+    if cfg.stage == 'TRAIN' and cfg.run_mode == "RUN":
+        input_file_path = TRAIN_SET_PATH
+        df_path = TRAIN_DF_PATH
+        queries_path = QUERIES_TRAIN_FILE_PATH
+
+    elif cfg.stage == 'TRAIN' and cfg.run_mode == "DEBUG":
+        input_file_path = DEBUG_TRAIN_SET_PATH
+        df_path = DEBUG_TRAIN_DF_PATH
+        queries_path = QUERIES_TRAIN_FILE_PATH
+
+    elif cfg.stage == 'EVAL' and cfg.run_mode == "RUN":
+        input_file_path = TEST_SET_PATH
+        df_path = TEST_DF_PATH
+        queries_path = QUERIES_TEST_FILE_PATH
+
     else:
-        dic = {"qid": [], "doc_id": [], "relevance": [], "bias": []}
-        for i in range(1, 47):
-            dic[i] = []
+        input_file_path = DEBUG_TEST_SET_PATH
+        df_path = DEBUG_TEST_DF_PATH
+        queries_path = QUERIES_TEST_FILE_PATH
 
-        with open(read_file, 'r', encoding='utf8') as f:
-            qid_set = set()
-            for line in f:
-                qrel = line.strip().split(" ")
-                qid = qrel[0]
-                if qid not in qid_set:
-                    qid_set.add(qid)
-                    row_counter = 1
 
-                if row_counter > top_docs_count:
-                    continue
-                else:
-                    doc_id, relevance, bias = qrel[2], qrel[4], float(qrel[6])
-                    dic["qid"].append(int(qid))
-                    dic["doc_id"].append(doc_id)
-                    dic["relevance"].append(relevance)
-                    dic["bias"].append(bias)
-                    for i in range(1, 47):
-                        dic[i].append(0.0)
-                    row_counter += 1
+    print(f"SET PATH: {input_file_path}")
+    if os.path.isfile(df_path):
+        df = pd.read_csv(df_path)
+        if 'Unnamed: 0' in df.columns:
+            df = df.drop('Unnamed: 0', axis = 1 )
 
-        df = pd.DataFrame(data=dic).sort_values(["qid", "relevance"], ascending=False)
-        logger.info("Loaded data from run file")
-        if save_file:
-            df.to_csv(save_file, index=False)
+        df['doc_id'] = df['doc_id'].astype(str)
+        logger.info(f"Loaded from presaved dataframe in {df_path} in  {time.time() - start_time} seconds")
+        print(df.info())
+        print(df.head(2))
+        return df
 
+    corpus = {}
+    with open(CORPUS_FILE_PATH, 'r', encoding='utf8') as f:
+        for line in f:
+            pid, passage = line.strip().split("\t")
+            corpus[pid] = passage.strip()
+
+    print('Loading queries...')
+    queries = {}
+    with open(queries_path, 'r', encoding='utf8') as f:
+        for line in f:
+            qid, query = line.strip().split("\t")
+            queries[qid] = query.strip()
+
+    model = SentenceTransformer(model_path, device='cuda:3')
+    print(f'{model_path} model loaded.')
+
+    dic = {"qid": [], "doc_id": [], "relevance": [], "bias": []}
+    # dic = {"qid": [], "doc_id": [], "relevance": []}
+
+
+    for i in range(1, 769):
+        dic[i] = []
+
+    with open(input_file_path, 'r', encoding='utf8') as f:
+        qid_set = set()
+        for line in tqdm(f, total=50289125):
+            data = line.strip().split(" ")
+            qid = data[0]
+
+            if qid not in qid_set:
+                qid_set.add(qid)
+                row_counter = 1
+
+            if row_counter > top_docs_count:
+                continue
+            else:
+                #121352 Q0 5561504 2 1.0000000 gold_sbert 0.0
+                doc_id, relevance = data[2], float(data[4])
+                bias = float(data[6])
+
+                dic["qid"].append(int(qid))
+                dic["doc_id"].append(doc_id)
+                dic["relevance"].append(relevance)
+                dic["bias"].append(bias)
+
+                vector = model.encode(f'{queries[qid]}[SEP]{corpus[doc_id]}')
+                # print(len(vector))
+                for i in range(1, 769):
+                    dic[i].append(vector[i - 1])
+
+                row_counter += 1
+
+    df = pd.DataFrame(data=dic).sort_values(["qid", "relevance"], ascending=False)
+    df.to_csv(df_path)
+
+    logger.info(f"Loaded data from run file and saved to {df_path} in {time.time() - start_time} seconds")
     return df
 
 def get_model_inputs(state, action, dataset) -> np.ndarray:
@@ -100,7 +150,7 @@ def get_features(qid, doc_id, dataset) -> List[float]:
     assert len(df) != 0, "Fix the dataset"
 
     df_copy = df.copy()
-    df_copy.drop(["qid", "doc_id", "relevance"], axis=1, inplace=True)
+    df_copy.drop(["qid", "doc_id", "relevance", "bias"], axis=1, inplace=True)
     df = df_copy
     return df.values.tolist()[0]
 
@@ -124,5 +174,5 @@ def get_query_features(qid, doc_list, dataset) -> np.ndarray:
     else:
         df = dataset[dataset["qid"] == qid]
     assert len(df) != 0
-    df.drop(["qid", "doc_id", "relevance"], axis=1, inplace=True)
+    df.drop(["qid", "doc_id", "relevance", "bias"], axis=1, inplace=True)
     return df.values

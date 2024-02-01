@@ -12,33 +12,33 @@ from collections import deque
 
 from util.preprocess import *
 
-def compute_reward(t, relevance, bias):
+def compute_reward(t, r, relevance, b, bias):
     """
-    Reward function for MDP
-    Bias value is in [-1, 1] -> either do abs or lambda*bias
-    Relevance value is in [0, 1]
-    """
+    Bias:[-1, 1]-> abs or lambda*bias. Relevance:[0, 1]
+    """    
     if t == 0:
         return 0
-    # return relevance / np.log2(t + 1)
-    return (float(relevance)*1000000 / np.log2(t + 1)) + (1/(abs(bias) + 1))
-    
-    
+    reward = (r * relevance - b * abs(bias)) / np.log2(t + 1)
+    # print(f"t:{t},r:{r}, rel:{relevance}, b:{b}, bias:{bias}, reward:{reward}")
+    return reward 
 
 class State:
 
     def __init__(self, t, query, remaining):
+        # print("state init")
         self.t = t
         self.qid = query #useful for sorting buffer
         self.remaining = remaining
 
     def pop(self):
+        print("pop")
         return self.remaining.pop()
 
     def initial(self):
         return self.t == 0
 
     def terminal(self):
+        print("terminal")
         return len(self.remaining) == 0
 
 class BasicBuffer:
@@ -51,23 +51,31 @@ class BasicBuffer:
         experience = (state, action, np.array([reward]), next_state, done)
         self.buffer.append(experience)
 
-    def push_batch(self, df, n):
+    def push_batch(self, df, relevance_coef, bias_coef, n):
+        # print(f"push_batch-> relevance_coef:{relevance_coef}, bias_coef:{bias_coef}")
         for i in range(n):
             random_qid = random.choice(list(df["qid"]))
             filtered_df = df.loc[df["qid"] == int(random_qid)].reset_index()
             row_order = [x for x in range(len(filtered_df))]
             X = [x[1]["doc_id"] for x in filtered_df.iterrows()]
+            # print(f"X before:{X}")
             random.shuffle(row_order)
             for t,r in enumerate(row_order):
                 cur_row = filtered_df.iloc[r]
                 old_state = State(t, cur_row["qid"], X[:])
+                
                 action = cur_row["doc_id"]
+                # print(f"action:{action}")
+                X.remove(action)
+                # print(f"X after:{X}")
                 new_state = State(t+1, cur_row["qid"], X[:])
-                reward = compute_reward(t+1, cur_row["relevance"], cur_row["bias"])
+# 
+                reward = compute_reward(t+1, relevance_coef, cur_row["relevance"], bias_coef, cur_row["bias"])
                 self.push(old_state, action, reward, new_state, t+1 == len(row_order))
                 filtered_df.drop(filtered_df.index[[r]])
 
     def sample(self, batch_size):
+        # print("sample")
         state_batch = []
         action_batch = []
         reward_batch = []

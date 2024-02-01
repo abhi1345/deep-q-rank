@@ -1,0 +1,68 @@
+version: test
+run_mode: RUN # DEBUG or RUN
+run_name: ${run_mode}_${version}
+
+
+directories:
+  base_path: "/home/shiva_soleimany/RL/deep-q-rerank"
+  dataset_folder: "/home/sajadeb/msmarco"
+  output_folder: "${directories.base_path}/data/output/${run_name}"
+  plot_folder: "${directories.output_folder}/plots"
+  model_folder: "${directories.output_folder}/models"
+  loss_folder: "${directories.output_folder}/losses"
+
+file_paths:
+  metadata_file_path: "${directories.output_folder}/metadat.md"
+
+train_config:
+  run_mode: "${run_mode}"
+  stage: "TRAIN"
+  r: 100
+  b: 0
+  metadata_file_path: "${file_paths.metadata_file_path}"
+  train_set_df_path: "${file_paths.train_set_df_path}"
+  train_set_short_df_path: "${directories.base_path}/data/top${train_config.run_params.top_docs_count}_docs_short.csv"
+  train_output_file_path: "${directories.loss_folder}/TrainLosses.txt"
+  validation_output_file_path: "${directories.loss_folder}/ValidationLosses.txt"
+  bert_model_path: "/home/sajadeb/LLaMA_Debiasing/BiEncoder/output/bi-encoder_margin-mse_bert-base-uncased"
+  train_loss_log10_plot_path: "${directories.plot_folder}/TrainingLossLog10.png"
+  train_loss_plot_path: "${directories.plot_folder}/TrainingLoss.png"
+  validation_loss_plot_path: "${directories.plot_folder}/ValidationLoss.png"
+  model_path: "${directories.model_folder}/model.pth" 
+
+  run_params:
+    learning_rate: 0.1
+    epochs: 30
+    seed: 0
+    window: 10
+    top_docs_count: 10
+
+  columns:
+    - qid
+    - doc_id
+    # - rank
+    - relevance
+    - bias
+
+  ndcg_k_list:
+    - 10
+
+eval_config:
+  run_mode: "${run_mode}"
+  stage: "EVAL"
+  run_params:
+    learning_rate: "${train_config.run_params.learning_rate}"
+    top_docs_count: "${train_config.run_params.top_docs_count}"
+    epochs: "${train_config.run_params.epochs}"
+  metadata_file_path: "${file_paths.metadata_file_path}"
+  eval_trec_output_file_path: "${directories.output_folder}/eval_trec_output.txt"
+  eval_ndgc_output_file_path: "${directories.output_folder}/eval_ndgc_output.txt"
+  # pretrained_model_path: "${train_config.model_path}"
+  pretrained_model_path: "${train_config.model_path}"
+  bert_model_path: "${train_config.bert_model_path}"
+  test_set_df_path: "${directories.output_folder}/df_test.csv"
+
+  ndcg_k_list: ${train_config.ndcg_k_list}
+  fold_list:
+    - 1
+
