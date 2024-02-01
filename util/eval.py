@@ -1,18 +1,59 @@
-# Functions for Evaluating Agent Performance
 from scipy.stats import kendalltau, spearmanr
 import numpy as np
 import pandas as pd
 import random
 from sklearn.utils import shuffle
-import torch
-import torch.nn as nn
-import torch.autograd as autograd
-from torchcontrib.optim import SWA
-from collections import deque
-import matplotlib.pyplot as plt
-random.seed(2)
 
-from mdp import *
+from model.mdp import *
+
+
+
+def calculate_MRR(qrel_file, run_file, k):
+
+    qrel, run = {}, {}
+
+    with open(qrel_file, 'r') as f_qrel:
+        for line in f_qrel:
+            qid, _, did, label = line.strip().split("\t")
+            if qid not in qrel:
+                qrel[qid] = {}
+            qrel[qid][did] = int(label)
+
+    if isinstance(run_file, pd.DataFrame):
+        for index, row in run_file.iterrows():
+            qid = str(row['qid'])
+            did = str(row['doc_id'])
+            if qid not in run:
+                run[qid] = []
+            run[qid].append(did)
+    else:
+        with open(run_file, 'r') as f_run:
+            for line in f_run:
+                qid, _, did, *_ = line.strip().split(" ")
+                if qid not in run:
+                    run[qid] = []
+                run[qid].append(did)
+        
+    mrr = 0.0
+    qids = []
+    rrs = []
+
+    for qid in run:
+        rr = 0.0
+        for i, did in enumerate(run[qid][:k]):
+            if qid in qrel and did in qrel[qid] and qrel[qid][did] > 0:
+                rr = 1 / (i+1)
+                break
+        qids.append(qid)
+        rrs.append(rr)
+        mrr += rr
+    mrr /= len(run)
+
+    print("MRR@10: ", mrr)
+    return mrr
+
+
+
 
 def dcg_at_k(r, k, method=0):
     r = np.asfarray(r)[:k]
@@ -42,10 +83,9 @@ def all_ndcg_values(r, k_list):
         if i in k_list:
             ret.append(cur_ndcg)
         running_sum += cur_ndcg
-    #print(ret + [float(running_sum) / len(r)])
     return ret + [float(running_sum) / len(r)]
 
-def ndcg_plus_tau(r, k_list):
+def all_ndcg_values_plus_tau(r, k_list):
     """
     Gets NDCG @ [1..10] and Mean NDCG Value
     """
@@ -56,7 +96,7 @@ def ndcg_plus_tau(r, k_list):
         if i in k_list:
             ret.append(cur_ndcg)
         running_sum += cur_ndcg
-    return ret + [float(running_sum) / len(r)] + [kendalltau(r, sorted(r, reverse=True))[0]]
+    return ret + [float(running_sum) / len(r)] + get_tau(r)
 
 def get_tau(r):
     return kendalltau(r, sorted(r, reverse=True))[0]
@@ -64,24 +104,19 @@ def get_tau(r):
 def compare_rankings(r1, r2):
     return kendalltau(r1, r2), spearmanr(r1, r2)
 
-def get_rank(qid, doc_id, dataset):
-    df = dataset[dataset["qid"] == qid][dataset["doc_id"] == doc_id]
-    return int(list(df["rank"])[0])
+def get_feature(qid, doc_id, dataset, feature):
+    df = dataset[(dataset["qid"] == qid) & (dataset["doc_id"] == doc_id)]
+    return float(list(df[feature])[0])
 
-def ranking_to_ranks(r, qid, dataset):
-    """
-    Turns list of doc id's into a list of relevance values
-    """
-    return [get_rank(qid, doc, dataset) for doc in r]
+def get_feature_for_docs(r, qid, dataset, feature):
+    return [get_feature(qid, doc, dataset, feature) for doc in r]
 
-def evaluate_ranking(r, qid, k, dataset):
+def evaluate_ranking_list(r, qid, k, dataset):
     """
     Takes in a ranked list of doc id's
-    Returns ndcg @ k of ranking
+    Returns ndcg @k of ranking
     """
-    print("getting relevance list")
-    relevance_list = ranking_to_ranks(r, qid, dataset)
-    print("computing ndcg")
+    relevance_list = get_feature_for_docs(r, qid, dataset, "relevance")
     return ndcg_at_k(relevance_list, k)
 
 def reward_from_query(agent, qid, df):
@@ -99,11 +134,13 @@ def reward_from_query(agent, qid, df):
         t += 1
         remaining.remove(next_action)
         state = State(t, qid, remaining)
-        reward = compute_reward(t, get_rank(qid, next_action, letor))
+
+        reward = compute_reward(t, get_feature(qid, next_action, letor, "relevance"), get_feature(qid, next_action, letor, "bias"))
+        
         total_reward += reward
     return total_reward
 
-def get_agent_ranking(agent, qid, df):
+def get_agent_ranking_list(agent, qid, df):
     """
     Run agent to rank a whole (single) query and get list
     agent: DQN agent
@@ -135,13 +172,11 @@ def get_true_ranking(qid, dataset):
 
 def eval_agent_ndcg_single(agent, k, qid, dataset):
     """
-    Evaluate your agent against a given LETOR dataset with 
+    Evaluate your agent against a given dataset with 
     returns ndcg@k, averaged across all queries in dataset
     """
-    print("getting agent ranking")
-    agent_ranking = get_agent_ranking(agent, qid, dataset)
-    print("running eval")
-    cur_ndcg = evaluate_ranking(agent_ranking, qid, k, dataset)
+    agent_ranking = get_agent_ranking_list(agent, qid, dataset)
+    cur_ndcg = evaluate_ranking_list(agent_ranking, qid, k, dataset)
     return cur_ndcg
 
 def all_ndcg_single(agent, k_list, qid, dataset):
@@ -149,21 +184,21 @@ def all_ndcg_single(agent, k_list, qid, dataset):
     Evaluate your agent against a given LETOR dataset with 
     returns ndcg@k, averaged across all queries in dataset
     """
-    agent_ranking = get_agent_ranking(agent, qid, dataset)
-    relevance_list = ranking_to_ranks(agent_ranking, qid, dataset)
+    agent_ranking = get_agent_ranking_list(agent, qid, dataset)
+    relevance_list = get_feature_for_docs(agent_ranking, qid, dataset, "relevance")
     return all_ndcg_values(relevance_list, k_list)
 
 def all_error_single(agent, k_list, qid, dataset):
     """
     Returns NDCG@k list plus tau for a single qid
     """
-    agent_ranking = get_agent_ranking(agent, qid, dataset)
-    relevance_list = ranking_to_ranks(agent_ranking, qid, dataset)
-    return ndcg_plus_tau(relevance_list, k_list)
+    agent_ranking = get_agent_ranking_list(agent, qid, dataset)
+    relevance_list = get_feature_for_docs(agent_ranking, qid, dataset, "relevance")
+    return all_ndcg_values_plus_tau(relevance_list, k_list)
 
 def get_tau_single(agent, qid, dataset):
-    agent_ranking = get_agent_ranking(agent, qid, dataset)
-    relevance_list = ranking_to_ranks(agent_ranking, qid, dataset)
+    agent_ranking = get_agent_ranking_list(agent, qid, dataset)
+    relevance_list = get_feature_for_docs(agent_ranking, qid, dataset, "relevance")
     return get_tau(relevance_list)
     
 def eval_agent_ndcg(agent, k, dataset):
@@ -186,11 +221,11 @@ def eval_agent_final(agent, k_list, dataset):
     """
     qid_set = set(dataset["qid"])
     ndcg_list = np.append(np.zeros(len(k_list)), 0)
-    #print(ndcg_list)
     for qid in qid_set:
         ndcg_list += np.array(all_ndcg_single(agent, k_list, qid, dataset))
     ndcg_list /= len(qid_set)
-    print("NDCG Values: {}".format(ndcg_list))
+
+    # print("NDCG Values: {}".format(ndcg_list))
     return ndcg_list
 
 def get_all_errors(agent, k_list, dataset):
@@ -217,3 +252,19 @@ def get_just_tau(agent, dataset):
     print("Tau Value: {}".format(avg_tau))
     return avg_tau
     
+def write_trec_results(agent, dataset, feature_names, output_file_path: str):    
+    
+    with open(output_file_path, 'a+') as file:
+        for qid in set(dataset["qid"]):
+            agent_ranking = get_agent_ranking_list(agent, qid, dataset)
+            for rank, doc_id in enumerate(agent_ranking, start=1):
+                feature_scores = []
+                for feature_name in feature_names:
+                    feature_score = dataset[(dataset["qid"] == qid) & (dataset["doc_id"] == doc_id)][feature_name].values[0]
+                    feature_scores.append(feature_score)
+
+                # print(feature_scores)
+                feature_scores = [str(a) for a in feature_scores]
+                feature_scores = " ".join(feature_scores)
+                file.write(f"{qid} QO {doc_id} {rank} {feature_scores} ModelName\n")
+
